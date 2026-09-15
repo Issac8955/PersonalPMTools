@@ -2,7 +2,7 @@
 
 import dbConnect from '@/lib/db';
 import { Task, Milestone } from '@/models/Schema';
-import { hasDependencyCycle } from '@/lib/dependencies'
+import { hasDependencyCycle } from '@/lib/dependencies';
 import { revalidatePath } from 'next/cache';
 import { SignJWT } from 'jose';
 import { cookies } from 'next/headers';
@@ -12,7 +12,7 @@ import { connectToDatabase } from '@/lib/mongodb';
 export type TaskStatus = 'To Do' | 'In Progress' | 'UAT' | 'PROD' | 'Done';
 export type TaskPriority = 'Low' | 'Medium' | 'High' | 'Urgent';
 
-interface CreateTaskPayload {
+export interface TaskPayload {
   title: string;
   description?: string;
   milestoneId?: string | null;
@@ -20,7 +20,6 @@ interface CreateTaskPayload {
   dueDate?: string | null;
   status?: TaskStatus;
 }
-
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET || 'fallback-secret-change-in-env'
@@ -41,7 +40,6 @@ export async function login(formData: FormData) {
     .setExpirationTime('30d')
     .sign(JWT_SECRET);
 
-  // Await cookies() for Next.js 15+ compatibility
   const cookieStore = await cookies();
   cookieStore.set('session', token, {
     httpOnly: true,
@@ -55,7 +53,6 @@ export async function login(formData: FormData) {
 }
 
 export async function logout() {
-  // Await cookies() for Next.js 15+ compatibility
   const cookieStore = await cookies();
   cookieStore.delete('session');
   redirect('/login');
@@ -83,7 +80,7 @@ export async function addDependency(taskId: string, prereqId: string) {
   const currentTask = await Task.findById(taskId);
   if (!currentTask) throw new Error('Task not found');
 
-  const proposedDeps = [...currentTask.dependencies.map((id) => id.toString()), prereqId];
+  const proposedDeps = [...currentTask.dependencies.map((id: any) => id.toString()), prereqId];
 
   if (await hasDependencyCycle(taskId, proposedDeps)) {
     throw new Error('Adding this dependency creates a cyclic loop.');
@@ -114,33 +111,90 @@ export async function restoreTask(taskId: string) {
   revalidatePath('/');
 }
 
-export async function createNewTask(taskData: CreateTaskPayload) {
+export async function createNewTask(taskData: TaskPayload) {
   try {
     await connectToDatabase();
 
-    // Map priority safely to match schema enum
-    let safePriority: TaskPriority = 'Medium';
-    if (taskData.priority === 'Low' || taskData.priority === 'Medium' || taskData.priority === 'High') {
+    // Map priority strictly to 'Low' | 'Medium' | 'High' accepted by Schema
+    let safePriority: 'Low' | 'Medium' | 'High' = 'Medium';
+    if (taskData.priority === 'Low' || taskData.priority === 'High') {
       safePriority = taskData.priority;
     }
 
+    const sanitizedMilestoneId =
+      taskData.milestoneId && taskData.milestoneId !== 'all'
+        ? taskData.milestoneId
+        : undefined;
+
     const createdTask = await Task.create({
       title: taskData.title,
-      description: taskData.description,
-      milestoneId: taskData.milestoneId ? taskData.milestoneId : undefined,
+      description: taskData.description || '',
+      milestoneId: sanitizedMilestoneId,
       priority: safePriority,
       dueDate: taskData.dueDate ? taskData.dueDate : undefined,
-      // Fix 1: Directly fallback to 'To Do' without illegal string comparison
       status: taskData.status ?? 'To Do',
       isArchived: false,
-      // Fix 2: Removed createdAt because Mongoose schema manages timestamps automatically
     });
 
     revalidatePath('/');
 
     return { success: true, task: JSON.parse(JSON.stringify(createdTask)) };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to create task in DB:', error);
-    return { success: false, error: 'Failed to create task' };
+    return { success: false, error: error.message || 'Failed to create task' };
+  }
+}
+
+export const createTask = createNewTask;
+
+export async function updateTask(taskId: string, payload: TaskPayload) {
+  try {
+    await connectToDatabase();
+
+    const title = payload.title?.trim();
+    const description = payload.description?.trim() || '';
+    
+    let safePriority: 'Low' | 'Medium' | 'High' = 'Medium';
+    if (payload.priority === 'Low' || payload.priority === 'High') {
+      safePriority = payload.priority;
+    }
+
+    const status = payload.status || 'To Do';
+    const milestoneId =
+      payload.milestoneId && payload.milestoneId !== 'all'
+        ? payload.milestoneId
+        : undefined;
+    const dueDate = payload.dueDate ? payload.dueDate : undefined;
+
+    if (!title) {
+      return { success: false, error: 'Title is required.' };
+    }
+
+    const updatedTask = await Task.findByIdAndUpdate(
+      taskId,
+      {
+        title,
+        description,
+        priority: safePriority,
+        status,
+        milestoneId,
+        dueDate,
+      },
+      { new: true }
+    );
+
+    if (!updatedTask) {
+      return { success: false, error: 'Task not found.' };
+    }
+
+    revalidatePath('/');
+
+    return {
+      success: true,
+      task: JSON.parse(JSON.stringify(updatedTask)),
+    };
+  } catch (error: any) {
+    console.error('Error updating task:', error);
+    return { success: false, error: error.message || 'Failed to update task.' };
   }
 }

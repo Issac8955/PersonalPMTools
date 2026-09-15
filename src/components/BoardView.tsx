@@ -13,6 +13,8 @@ import {
 } from '@dnd-kit/core';
 import { BoardColumn } from './BoardColumn';
 import { TaskCard, TaskProps } from './TaskCard';
+import { TaskModal, TaskItem } from './TaskModal';
+import { MilestoneProps } from './AppShell';
 import { updateTaskStatus } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,12 +29,19 @@ const COLUMNS: { id: TaskProps['status']; title: string; color: string }[] = [
   { id: 'Done', title: 'Done', color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
 ];
 
-export function BoardView({ initialTasks }: { initialTasks: TaskProps[] }) {
+interface BoardViewProps {
+  initialTasks: TaskProps[];
+  milestones?: MilestoneProps[];
+}
+
+export function BoardView({ initialTasks, milestones = [] }: BoardViewProps) {
   const [tasks, setTasks] = useState<TaskProps[]>(initialTasks);
   const [activeTask, setActiveTask] = useState<TaskProps | null>(null);
   const [viewMode, setViewMode] = useState<'kanban' | 'gantt'>('kanban');
+  const [selectedTaskForEdit, setSelectedTaskForEdit] = useState<TaskItem | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-  // Sync local state when revalidatePath updates incoming props
+  // Sync local state when revalidatePath updates incoming props[cite: 3]
   useEffect(() => {
     setTasks(initialTasks);
   }, [initialTasks]);
@@ -42,6 +51,19 @@ export function BoardView({ initialTasks }: { initialTasks: TaskProps[] }) {
       activationConstraint: { distance: 5 },
     })
   );
+
+  const handleEditTask = (task: TaskProps) => {
+    setSelectedTaskForEdit({
+      _id: task._id,
+      title: task.title,
+      description: task.description,
+      priority: task.priority as 'Low' | 'Medium' | 'High',
+      status: task.status,
+      milestoneId: (task as any).milestoneId,
+      dueDate: task.dueDate ? new Date(task.dueDate).toISOString() : null,
+    });
+    setIsEditModalOpen(true);
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find((t) => t._id === event.active.id);
@@ -83,7 +105,7 @@ export function BoardView({ initialTasks }: { initialTasks: TaskProps[] }) {
     }
   };
 
-  // Gantt Chart Calculations (14-day rolling window)
+  // Gantt Chart Calculations (14-day rolling window)[cite: 3]
   const startDate = startOfWeek(new Date(), { weekStartsOn: 1 });
   const timelineDays = Array.from({ length: 14 }, (_, i) => addDays(startDate, i));
 
@@ -141,6 +163,7 @@ export function BoardView({ initialTasks }: { initialTasks: TaskProps[] }) {
                         title={col.title}
                         color={col.color}
                         tasks={columnTasks}
+                        onTaskClick={handleEditTask}
                       />
                     </div>
                   </div>
@@ -187,7 +210,11 @@ export function BoardView({ initialTasks }: { initialTasks: TaskProps[] }) {
                   const barSpanPercent = (2 / 14) * 100;
 
                   return (
-                    <div key={task._id} className="grid grid-cols-12 items-center py-2 px-3 hover:bg-muted/20 transition-colors">
+                    <div
+                      key={task._id}
+                      onClick={() => handleEditTask(task)}
+                      className="grid grid-cols-12 items-center py-2 px-3 hover:bg-muted/20 transition-colors cursor-pointer"
+                    >
                       {/* Sidebar Task Details */}
                       <div className="col-span-3 border-r pr-2 space-y-0.5 truncate">
                         <div className="font-semibold truncate text-foreground text-xs">{task.title}</div>
@@ -229,6 +256,17 @@ export function BoardView({ initialTasks }: { initialTasks: TaskProps[] }) {
           </div>
         )}
       </div>
+
+      {/* Task Edit Modal */}
+      <TaskModal
+        isOpen={isEditModalOpen}
+        onClose={() => {
+          setIsEditModalOpen(false);
+          setSelectedTaskForEdit(null);
+        }}
+        milestones={milestones}
+        taskToEdit={selectedTaskForEdit}
+      />
     </div>
   );
 }

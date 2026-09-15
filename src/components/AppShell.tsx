@@ -33,7 +33,7 @@ import { logout } from '@/app/actions';
 import { createNewTask } from '@/app/actions';
 import { createNewMilestone } from '@/app/actions/createMilestone';
 
-interface MilestoneProps {
+export interface MilestoneProps {
   _id: string;
   name: string;
 }
@@ -122,27 +122,28 @@ export function AppShell({ tasks, milestones }: AppShellProps) {
         {/* Controls, Milestone Filter & Action Buttons */}
         <div className="flex items-center gap-3">
           {activeTab !== 'archive' && (
-          <Select
-            value={selectedMilestone}
-            onValueChange={(val) => setSelectedMilestone(val ?? 'all')}
-          >
-            <SelectTrigger className="h-8 w-44 text-xs">
-              <SelectValue placeholder="Milestone: All">
-                {selectedMilestone === 'all'
-                  ? 'All Milestones'
-                  : milestones.find((m) => String(m._id) === String(selectedMilestone))?.name || 'All Milestones'}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Milestones</SelectItem>
-              {milestones.map((m) => (
-                <SelectItem key={String(m._id)} value={String(m._id)}>
-                  {m.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
+            <Select
+              value={selectedMilestone}
+              onValueChange={(val) => setSelectedMilestone(val ?? 'all')}
+            >
+              <SelectTrigger className="h-8 w-44 text-xs">
+                <SelectValue placeholder="Milestone: All">
+                  {selectedMilestone === 'all'
+                    ? 'All Milestones'
+                    : milestones.find((m) => String(m._id) === String(selectedMilestone))?.name || 'All Milestones'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Milestones</SelectItem>
+                {milestones.map((m) => (
+                  <SelectItem key={String(m._id)} value={String(m._id)}>
+                    {m.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          
 
           {/* New Milestone Button */}
           <Button
@@ -187,7 +188,9 @@ export function AppShell({ tasks, milestones }: AppShellProps) {
 
       {/* Main View Surface */}
       <main className="flex-1 overflow-auto">
-        {activeTab === 'board' && <BoardView initialTasks={visibleTasks} />}
+        {activeTab === 'board' && (
+          <BoardView initialTasks={visibleTasks} milestones={milestones} />
+        )}
         {activeTab === 'list' && <ListView tasks={visibleTasks} milestones={milestones} />}
         {activeTab === 'calendar' && <CalendarView tasks={visibleTasks} />}
         {activeTab === 'timeline' && <TimelineView tasks={visibleTasks} />}
@@ -197,7 +200,7 @@ export function AppShell({ tasks, milestones }: AppShellProps) {
               <div>
                 <h2 className="text-lg font-bold">Archive Tasks</h2>
                 <p className="text-xs text-muted-foreground">
-                  Finished or abandoned work removed from active views[cite: 1].
+                  Finished or abandoned work removed from active views.
                 </p>
               </div>
               <Badge variant="secondary" className="font-mono">

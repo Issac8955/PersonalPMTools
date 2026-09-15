@@ -85,15 +85,22 @@ export function ListView({ tasks, milestones }: ListViewProps) {
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto">
-          <Select value={selectedMilestone} onValueChange={(value) => setSelectedMilestone(value ?? 'all')}>
-            <SelectTrigger className="w-full md:w-48">
-              <SelectValue placeholder="All Milestones" />
+          <Select
+              value={selectedMilestone}
+              onValueChange={(val) => setSelectedMilestone(val ?? 'all')}
+            >
+            <SelectTrigger className="h-8 w-44 text-xs">
+              <SelectValue placeholder="Milestone: All">
+                {selectedMilestone === 'all'
+                  ? 'All Milestones'
+                  : milestones.find((m) => String(m._id) === String(selectedMilestone))?.name || 'All Milestones'}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Milestones</SelectItem>
               {milestones.map((m) => (
-                <SelectItem key={m._id} value={m._id}>
-                  {m.name}
+                <SelectItem key={String(m._id)} value={String(m._id)}>
+                   {m.name}
                 </SelectItem>
               ))}
             </SelectContent>

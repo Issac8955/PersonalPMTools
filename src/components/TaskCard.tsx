@@ -20,6 +20,7 @@ interface SubTask {
 export interface TaskProps {
   _id: string;
   title: string;
+  description?: string;
   type: 'Feature' | 'Bug' | 'Maintenance' | 'Personal';
   priority: 'High' | 'Medium' | 'Low';
   status: 'To Do' | 'In Progress' | 'UAT' | 'PROD' | 'Done';
@@ -56,7 +57,7 @@ export function TaskCard({ task }: { task: TaskProps }) {
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="touch-none my-2">
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} suppressHydrationWarning className="touch-none my-2">
       <Card className="relative overflow-hidden border shadow-sm hover:shadow transition-shadow bg-card">
         {/* Priority Accent Strip */}
         <div className={`absolute top-0 left-0 bottom-0 w-1 ${priorityColors[task.priority]}`} />
